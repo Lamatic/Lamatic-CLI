@@ -7,6 +7,7 @@ const chalk = require('chalk');
 const fs = require('fs-extra');
 const path = require('path');
 const { getConfig } = require('../utils/config');
+const { safePathComponent } = require('../utils/safe-path');
 const { getProject, getFlows, getFlowDetail, listProjects, deleteProject } = require('../utils/api');
 
 const project = new Command('project');
@@ -90,7 +91,7 @@ project
       console.log(chalk.gray(`Endpoint:   ${result.endpoint}`));
       console.log(chalk.gray(`Created by: ${result.created_by}`));
 
-      const base = path.join(process.cwd(), result.name);
+      const base = path.join(process.cwd(), safePathComponent(result.name, 'project name'));
 
       if (fs.existsSync(base)) {
         console.log(chalk.yellow(`\nFolder "${result.name}" already exists. Skipping download.`));
@@ -109,10 +110,17 @@ project
             console.log(chalk.yellow('No flows found in this project.'));
           } else {
             for (const flow of flows) {
+              let slug;
+              try {
+                slug = safePathComponent(flow.slug, 'flow slug');
+              } catch (err) {
+                console.log(chalk.yellow(`  Warning: Skipping flow: ${err.message}`));
+                continue;
+              }
               try {
                 const flowDetail = await getFlowDetail({ orgId, projectId, flowId: flow.id });
                 fs.writeFileSync(
-                  path.join(base, 'flows', `${flow.slug}.json`),
+                  path.join(base, 'flows', `${slug}.json`),
                   JSON.stringify(flowDetail, null, 2)
                 );
                 console.log(chalk.gray(`  Downloaded flow: ${flow.name}`));
